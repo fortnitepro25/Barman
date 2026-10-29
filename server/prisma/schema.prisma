@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  bar          Bar?
+  createdAt    DateTime @default(now())
+}
+
+model Bar {
+  id              Int           @id @default(autoincrement())
+  name            String
+  slug            String        @unique
+  description     String        @default("")
+  address         String        @default("")
+  accentColor     String        @default("#a52a32")
+  backgroundColor String        @default("#101112")
+  logoUrl         String?
+  ownerId         Int           @unique
+  owner           User          @relation(fields: [ownerId], references: [id])
+  reservations    Reservation[]
+  menuItems       MenuItem[]
+  events          Event[]
+  createdAt       DateTime      @default(now())
+}
+
+model Reservation {
+  id            Int      @id @default(autoincrement())
+  barId         Int
+  bar           Bar      @relation(fields: [barId], references: [id], onDelete: Cascade)
+  customerName  String
+  customerEmail String
+  reservationAt DateTime
+  guestCount    Int
+  status        String   @default("PENDING")
+  notes         String   @default("")
+  createdAt     DateTime @default(now())
+
+  @@index([barId, reservationAt])
+}
+
+model MenuItem {
+  id          Int      @id @default(autoincrement())
+  barId       Int
+  bar         Bar      @relation(fields: [barId], references: [id], onDelete: Cascade)
+  name        String
+  description String   @default("")
+  priceCents  Int
+  category    String   @default("Drinks")
+  available   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([barId])
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  barId       Int
+  bar         Bar      @relation(fields: [barId], references: [id], onDelete: Cascade)
+  title       String
+  description String   @default("")
+  startsAt    DateTime
+  imageUrl    String?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([barId, startsAt])
+}
