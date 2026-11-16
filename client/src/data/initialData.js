@@ -1,0 +1,107 @@
+export const initialReservations = [
+  {
+    id: 1,
+    name: 'Alex Morgan',
+    email: 'alex@example.com',
+    time: '18:30',
+    date: '2026-10-29',
+    guests: 4,
+    status: 'CONFIRMED',
+    table: 'T-04',
+  },
+  {
+    id: 2,
+    name: 'Jamie Wilson',
+    email: 'jamie@example.com',
+    time: '19:00',
+    date: '2026-10-29',
+    guests: 2,
+    status: 'PENDING',
+    table: '—',
+  },
+  {
+    id: 3,
+    name: 'Taylor Smith',
+    email: 'taylor@example.com',
+    time: '19:30',
+    date: '2026-10-29',
+    guests: 6,
+    status: 'PENDING',
+    table: '—',
+  },
+  {
+    id: 4,
+    name: 'Jordan Lee',
+    email: 'jordan@example.com',
+    time: '20:00',
+    date: '2026-10-29',
+    guests: 3,
+    status: 'CONFIRMED',
+    table: 'T-02',
+  },
+  {
+    id: 5,
+    name: 'Casey Brown',
+    email: 'casey@example.com',
+    time: '21:00',
+    date: '2026-10-29',
+    guests: 2,
+    status: 'COMPLETED',
+    table: 'T-06',
+  },
+]
+
+export const initialMenu = [
+  {
+    id: 1,
+    name: 'Old Fashioned',
+    category: 'Cocktails',
+    description: 'Bourbon, bitters, sugar',
+    price: 1250,
+    available: true,
+  },
+  {
+    id: 2,
+    name: 'Espresso Martini',
+    category: 'Cocktails',
+    description: 'Vodka, espresso, coffee liqueur',
+    price: 1350,
+    available: true,
+  },
+  {
+    id: 3,
+    name: 'Gin & Tonic',
+    category: 'Cocktails',
+    description: 'Gin, tonic, lime',
+    price: 1100,
+    available: true,
+  },
+  {
+    id: 4,
+    name: 'House Lemonade',
+    category: 'Non-alcoholic',
+    description: 'Fresh lemon, soda, mint',
+    price: 650,
+    available: true,
+  },
+]
+
+export const initialEvents = [
+  {
+    id: 1,
+    title: 'FRIDAY SESSIONS',
+    date: '2026-10-30',
+    time: '21:00',
+    description: 'A night of house music and cocktails.',
+    published: true,
+  },
+  {
+    id: 2,
+    title: 'LATE NIGHT SELECTORS',
+    date: '2026-11-06',
+    time: '22:00',
+    description: 'Guest DJs behind the decks.',
+    published: false,
+  },
+]
+
