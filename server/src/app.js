@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
@@ -11,25 +10,30 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    credentials: true,
+  }),
+);
 
 app.use(express.json({ limit: "1mb" }));
 
-app.use(session({
-  name: "barman.sid",
-  secret: process.env.SESSION_SECRET || "change-this-local-development-secret",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 1000 * 60 * 60 * 24 * 7,
-  },
-}));
+app.use(
+  session({
+    name: "barman.sid",
+    secret:
+      process.env.SESSION_SECRET || "change-this-local-development-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+    },
+  }),
+);
 
 function requireAuth(req, res, next) {
   if (!req.session.userId || !req.session.barId) {
@@ -89,7 +93,8 @@ app.post("/api/auth/register", async (req, res) => {
 
     if (!process.env.SETUP_CODE) {
       return res.status(503).json({
-        error: "Registration is disabled. Configure SETUP_CODE in server/.env first.",
+        error:
+          "Registration is disabled. Configure SETUP_CODE in server/.env first.",
       });
     }
 
@@ -151,7 +156,9 @@ app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required." });
+      return res
+        .status(400)
+        .json({ error: "Email and password are required." });
     }
 
     const user = await prisma.user.findUnique({
@@ -260,20 +267,27 @@ app.get("/api/public/:slug", async (req, res) => {
 
 app.post("/api/public/:slug/reservations", async (req, res) => {
   try {
-    const { customerName, customerEmail, reservationAt, guestCount, notes } = req.body;
+    const { customerName, customerEmail, reservationAt, guestCount, notes } =
+      req.body;
 
     if (!customerName || !customerEmail || !reservationAt || !guestCount) {
-      return res.status(400).json({ error: "Please fill in all required fields." });
+      return res
+        .status(400)
+        .json({ error: "Please fill in all required fields." });
     }
 
     if (!validDate(reservationAt)) {
-      return res.status(400).json({ error: "Please choose a valid reservation date." });
+      return res
+        .status(400)
+        .json({ error: "Please choose a valid reservation date." });
     }
 
     const guests = Number(guestCount);
 
     if (!Number.isInteger(guests) || guests < 1 || guests > 20) {
-      return res.status(400).json({ error: "Guest count must be between 1 and 20." });
+      return res
+        .status(400)
+        .json({ error: "Guest count must be between 1 and 20." });
     }
 
     const bar = await prisma.bar.findUnique({
@@ -304,37 +318,157 @@ app.post("/api/public/:slug/reservations", async (req, res) => {
   }
 });
 
+// DASHBOARD STATISTICS
+app.get("/api/dashboard", requireAuth, async (req, res) => {
+  try {
+    const barId = req.session.barId;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const [
+      totalReservations,
+      pendingReservations,
+      confirmedReservations,
+      todayReservations,
+      totalMenuItems,
+      upcomingEvents,
+    ] = await Promise.all([
+      prisma.reservation.count({
+        where: { barId },
+      }),
+
+      prisma.reservation.count({
+        where: { barId, status: "PENDING" },
+      }),
+
+      prisma.reservation.count({
+        where: { barId, status: "CONFIRMED" },
+      }),
+
+      prisma.reservation.count({
+        where: {
+          barId,
+          reservationAt: {
+            gte: today,
+            lt: tomorrow,
+          },
+        },
+      }),
+
+      prisma.menuItem.count({
+        where: { barId },
+      }),
+
+      prisma.event.count({
+        where: {
+          barId,
+          published: true,
+          startsAt: { gte: new Date() },
+        },
+      }),
+    ]);
+
+    res.json({
+      totalReservations,
+      pendingReservations,
+      confirmedReservations,
+      todayReservations,
+      totalMenuItems,
+      upcomingEvents,
+    });
+  } catch (error) {
+    console.error("Dashboard error:", error);
+    res.status(500).json({
+      error: "Failed to load dashboard statistics.",
+    });
+  }
+});
+
 // MANAGEMENT: RESERVATIONS
+
+const RESERVATION_STATUSES = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"];
+
+function getValidId(value) {
+  const id = Number(value);
+
+  if (!Number.isSafeInteger(id) || id < 1) {
+    return null;
+  }
+
+  return id;
+}
+
+// GET ALL RESERVATIONS
+// Optional filter: /api/reservations?status=PENDING
 
 app.get("/api/reservations", requireAuth, async (req, res) => {
   try {
+    const where = {
+      barId: req.session.barId,
+    };
+
+    if (req.query.status !== undefined) {
+      const status = req.query.status.toUpperCase();
+
+      if (!RESERVATION_STATUSES.includes(status)) {
+        return res.status(400).json({
+          error: "Invalid reservation status filter.",
+        });
+      }
+
+      where.status = status;
+    }
+
     const reservations = await prisma.reservation.findMany({
-      where: { barId: req.session.barId },
-      orderBy: { reservationAt: "asc" },
+      where,
+      orderBy: {
+        reservationAt: "asc",
+      },
     });
 
-    res.json({ reservations });
+    res.json({
+      count: reservations.length,
+      reservations,
+    });
   } catch (error) {
     handleError(res, error);
   }
 });
 
+// UPDATE RESERVATION STATUS
+
 app.patch("/api/reservations/:id", requireAuth, async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = getValidId(req.params.id);
     const { status } = req.body;
-    const allowed = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"];
+
+    if (!id) {
+      return res.status(400).json({
+        error: "Invalid reservation ID.",
+      });
+    }
+
+    if (typeof status !== "string" || !RESERVATION_STATUSES.includes(status)) {
+      return res.status(400).json({
+        error: "Invalid reservation status.",
+      });
+    }
 
     const existing = await prisma.reservation.findFirst({
-      where: { id, barId: req.session.barId },
+      where: {
+        id,
+        barId: req.session.barId,
+      },
     });
 
     if (!existing) {
-      return res.status(404).json({ error: "Reservation not found." });
-    }
-
-    if (!allowed.includes(status)) {
-      return res.status(400).json({ error: "Invalid reservation status." });
+      return res.status(404).json({
+        error: "Reservation not found.",
+      });
     }
 
     const reservation = await prisma.reservation.update({
@@ -342,7 +476,44 @@ app.patch("/api/reservations/:id", requireAuth, async (req, res) => {
       data: { status },
     });
 
-    res.json({ reservation });
+    res.json({
+      message: "Reservation status updated.",
+      reservation,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+// DELETE RESERVATION
+
+app.delete("/api/reservations/:id", requireAuth, async (req, res) => {
+  try {
+    const id = getValidId(req.params.id);
+
+    if (!id) {
+      return res.status(400).json({
+        error: "Invalid reservation ID.",
+      });
+    }
+
+    // Only delete a reservation belonging to this owner's bar.
+    const result = await prisma.reservation.deleteMany({
+      where: {
+        id,
+        barId: req.session.barId,
+      },
+    });
+
+    if (result.count === 0) {
+      return res.status(404).json({
+        error: "Reservation not found.",
+      });
+    }
+
+    res.json({
+      message: "Reservation deleted successfully.",
+    });
   } catch (error) {
     handleError(res, error);
   }
@@ -369,7 +540,9 @@ app.post("/api/menu", requireAuth, async (req, res) => {
     const price = Number(priceCents);
 
     if (!name || !Number.isInteger(price) || price < 0) {
-      return res.status(400).json({ error: "Name and a valid price are required." });
+      return res
+        .status(400)
+        .json({ error: "Name and a valid price are required." });
     }
 
     const menuItem = await prisma.menuItem.create({
@@ -457,7 +630,9 @@ app.post("/api/events", requireAuth, async (req, res) => {
     const { title, description, startsAt, imageUrl, published } = req.body;
 
     if (!title || !validDate(startsAt)) {
-      return res.status(400).json({ error: "Event title and valid date are required." });
+      return res
+        .status(400)
+        .json({ error: "Event title and valid date are required." });
     }
 
     const event = await prisma.event.create({
