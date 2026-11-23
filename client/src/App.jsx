@@ -1,8 +1,19 @@
-import { useState } from 'react'
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+
+import { useEffect, useState } from 'react'
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
+
+import { api } from './api'
 import TopBar from './components/TopBar'
 import Sidebar from './components/Sidebar'
+
 import { initialReservations, initialMenu, initialEvents } from './data/initialData'
+
 import Dashboard from './pages/management/Dashboard'
 import ReservationsPage from './pages/management/Reservations'
 import MenuPage from './pages/management/Menu'
@@ -11,16 +22,47 @@ import WebsiteStudio from './pages/management/WebsiteStudio'
 import FloorPlan from './pages/management/FloorPlan'
 import SettingsPage from './pages/management/Settings'
 import PublicPreview from './pages/public/Home'
+import Login from './pages/Login'
+import Register from './pages/Register'
 
 function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
+
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   const [reservations, setReservations] = useState(initialReservations)
   const [menu, setMenu] = useState(initialMenu)
   const [events, setEvents] = useState(initialEvents)
   const [accent, setAccent] = useState('#a52a32')
   const [background, setBackground] = useState('#101112')
+
+  useEffect(() => {
+    api.get('/auth/me')
+      .then((data) => setUser(data.user))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function handleLogout() {
+    try {
+      await api.post('/auth/logout', {})
+      setUser(null)
+      navigate('/login')
+    } catch (error) {
+      alert(error.message)
+    }
+  }
+
+  function handleLogin(userData) {
+    setUser(userData)
+    navigate('/dashboard')
+  }
+
+  if (loading) {
+    return <div className="auth-loading">BARMAN / LOADING SYSTEM...</div>
+  }
 
   const path = location.pathname
 
@@ -36,17 +78,41 @@ function AppShell() {
     )
   }
 
+  if (!user && path !== '/login' && path !== '/register') {
+    navigate('/login')
+    return null
+  }
+
+  if (user && (path === '/login' || path === '/register')) {
+    navigate('/dashboard')
+    return null
+  }
+
+  if (path === '/login') {
+    return <Login onLogin={handleLogin} />
+  }
+
+  if (path === '/register') {
+    return <Register onRegister={handleLogin} />
+  }
+
   return (
     <div className="app-shell">
-      <TopBar />
+      <TopBar user={user} onLogout={handleLogout} />
 
       <div className="app-body">
-        <Sidebar currentPath={path} navigate={navigate} />
+        <Sidebar
+          currentPath={path}
+          navigate={navigate}
+          bar={user?.bar}
+        />
 
         <main className="workspace">
           <div className="workspace-topline">
-            <span>WORKSPACE / {path.slice(1).replaceAll('-', ' ').toUpperCase() || 'DASHBOARD'}</span>
-            <span>THU 29 OCT 2026 <i /> LOCAL DEMO</span>
+            <span>
+              WORKSPACE / {path.slice(1).replaceAll('-', ' ').toUpperCase() || 'DASHBOARD'}
+            </span>
+            <span>OWNER ACCOUNT <i /> CONNECTED</span>
           </div>
 
           <div className="page-content">
@@ -131,7 +197,7 @@ function AppShell() {
 
           <footer className="workspace-footer">
             <span>BARMAN VENUE MANAGEMENT SYSTEM</span>
-            <span>INTERFACE BUILD 0.1.0</span>
+            <span>INTERFACE BUILD 0.2.0</span>
           </footer>
         </main>
       </div>
